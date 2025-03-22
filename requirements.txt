@@ -1,6 +1,6 @@
 streamlit
 openai
-duckduckgo-search
+duckduckgo-search==3.8.0
 faiss-cpu
 numpy
 pandas
