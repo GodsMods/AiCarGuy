@@ -1,70 +1,66 @@
 import streamlit as st
 import openai
-import pandas as pd
-import numpy as np
-import faiss
 from duckduckgo_search import DDGS
-import os
+import re
 
-############################
-# 1. Setup & Configuration
-############################
-st.set_page_config(page_title="AiCarGuy – GPT-3.5 Chatbot", layout="wide")
+st.set_page_config(page_title="AiCarGuy – GPT-3.5 + Domain Search", layout="wide")
 
-# Retrieve your OpenAI key from Streamlit secrets
+# 1. Retrieve your OpenAI key from secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Domain filter keywords
 AUTOMOTIVE_KEYWORDS = [
-    "car","engine","brake","tire","vehicle","automotive",
-    "transmission","exhaust","repair","maintenance","mod","lugnut","wheel",
-    "coolant","oil","fluid","battery","spark plug","radiator","alternator",
-    "starter","ignition","fuel","sensor","sierra","gmc","chevrolet","ford","honda","toyota"
+    "car","engine","brake","tire","vehicle","automotive","transmission",
+    "exhaust","repair","maintenance","mod","lugnut","wheel","coolant","oil",
+    "fluid","battery","spark plug","radiator","alternator","starter","ignition",
+    "fuel","sensor","sierra","gmc","chevrolet","ford","honda","toyota"
 ]
 
-############################
-# 2. Product Catalog
-############################
-# We load a CSV of your godsmods.shop products
-# Format: product_name, keywords, product_url
-products_df = pd.read_csv("products.csv")  # Make sure this file is in the same directory
+def is_automotive_query(query):
+    q_lower = query.lower()
+    return any(k in q_lower for k in AUTOMOTIVE_KEYWORDS)
 
-def find_relevant_products(user_query):
+def domain_search_godsmods(query):
     """
-    Very simple approach: if user_query contains any 'keyword' from the CSV,
-    return the product_name + product_url. We can refine with a better match approach if needed.
+    Search only site:godsmods.shop for relevant product links.
+    Return a short string with the top link found, or a note if none found.
     """
-    user_lower = user_query.lower()
-    matched_products = []
-    for _, row in products_df.iterrows():
-        product_keywords = [k.strip().lower() for k in row["keywords"].split(",")]
-        if any(k in user_lower for k in product_keywords):
-            matched_products.append((row["product_name"], row["product_url"]))
-    return matched_products
-
-############################
-# 3. DuckDuckGo Web Search
-############################
-def retrieve_web_info(query, max_results=5):
     with DDGS() as ddgs:
-        results = list(ddgs.text(query, max_results=max_results))
+        results = list(ddgs.text(f"site:godsmods.shop {query}", max_results=3))
     if not results:
-        return "No relevant info found from the web."
-    # Combine titles & bodies
-    combined = ""
+        return "No product link found for that query on godsmods.shop."
+    
+    # Typically the first result is the best. We'll return the title + link if possible.
+    # Some results might have 'href' or 'body' with the link
+    link_info = ""
     for r in results:
+        # The duckduckgo_search text results usually have 'title' and 'body'
+        # but might not have an explicit 'href'. We'll try to parse the link from the body if present
         title = r.get("title","")
         body = r.get("body","")
-        combined += f"{title}: {body}\n"
-    return combined.strip()
+        # Attempt to find a link in the body text
+        url_match = re.search(r'(https?://[^\s]+)', body)
+        if url_match:
+            link = url_match.group(1)
+            link_info += f"{title}: {link}\n"
+        else:
+            # If no direct link in body, just store the text
+            link_info += f"{title}: {body}\n"
+    return link_info.strip() if link_info else "No direct product link found."
 
-############################
-# 4. GPT-3.5 Chat
-############################
-def call_openai_chat(messages):
+def general_web_snippet(query):
     """
-    messages: a list of dicts with 'role' and 'content'
+    General automotive info search (not domain restricted).
     """
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query + " automotive repair", max_results=3))
+    if not results:
+        return "No general automotive info found."
+    snippet = ""
+    for r in results:
+        snippet += f"{r.get('title','')}: {r.get('body','')}\n"
+    return snippet.strip()
+
+def call_gpt35(messages):
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=messages,
@@ -72,51 +68,32 @@ def call_openai_chat(messages):
     )
     return response["choices"][0]["message"]["content"]
 
-def is_automotive_query(query):
-    q_lower = query.lower()
-    return any(k in q_lower for k in AUTOMOTIVE_KEYWORDS)
-
-############################
-# 5. The main logic
-############################
 def answer_query(user_query):
-    # 5A. Domain check
+    # 1) Domain check
     if not is_automotive_query(user_query):
-        return "I only handle automotive repair or upgrade questions. Please ask about cars, engines, parts, etc."
+        return "I only answer automotive repair or upgrade questions. Please ask something car-related."
 
-    # 5B. Web retrieval
-    # e.g. "my 2000 GMC sierra water pump"
-    # We'll add "automotive repair" to ensure results
-    web_snippet = retrieve_web_info(user_query + " automotive repair", max_results=5)
+    # 2) domain-limited search for product link
+    product_links = domain_search_godsmods(user_query)
 
-    # 5C. Product linking
-    matched = find_relevant_products(user_query)
-    product_info = ""
-    if matched:
-        # If we found some relevant products, mention them
-        product_info = "I found these matching products on godsmods.shop:\n"
-        for name, url in matched:
-            product_info += f"- {name}: {url}\n"
+    # 3) general automotive snippet
+    web_info = general_web_snippet(user_query)
 
-    # 5D. Build the final system+user messages for GPT-3.5
+    # 4) Build messages for GPT
     messages = [
-        {"role": "system", "content": "You are a helpful automotive repair and upgrade expert. You ONLY answer automotive questions, referencing the user's query, the web snippet, and the product links if relevant."},
-        {"role": "assistant", "content": f"Here is some background web info:\n{web_snippet}\n\nHere are possible relevant products:\n{product_info}"},
+        {"role": "system", "content": "You are a helpful automotive repair and upgrade expert. You ONLY answer automotive questions."},
+        {"role": "assistant", "content": f"Here is some product info from godsmods.shop:\n{product_links}\n\nHere is some general automotive web info:\n{web_info}"},
         {"role": "user", "content": user_query}
     ]
-    # 5E. Call GPT-3.5
-    final_answer = call_openai_chat(messages)
-    return final_answer
+    # 5) GPT-3.5
+    return call_gpt35(messages)
 
-############################
-# 6. Streamlit UI
-############################
-st.title("🚗 AiCarGuy – GPT-3.5 with Web & godsmods.shop Links")
+st.title("🚗 AiCarGuy – GPT-3.5 + Domain-limited search for godsmods.shop")
 
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
-user_input = st.text_input("Ask me an automotive repair/upgrade question:")
+user_input = st.text_input("Ask about automotive repair or a product on godsmods.shop:")
 
 if st.button("Submit"):
     if not user_input.strip():
