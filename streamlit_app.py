@@ -1,6 +1,6 @@
 import streamlit as st
 from transformers import pipeline, AutoTokenizer, AutoModel
-from duckduckgo_search import ddg
+from duckduckgo_search import DDGS
 import numpy as np
 import faiss
 import torch
