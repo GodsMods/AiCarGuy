@@ -5,10 +5,10 @@ from duckduckgo_search import DDGS
 import numpy as np
 import faiss
 
-# Load smarter, instruction-tuned model (Gemma 2B)
-generator = pipeline("text-generation", model="google/gemma-2b-it", device=-1)
+# Use Flan-T5-Small for instruction-tuned Q&A
+generator = pipeline("text2text-generation", model="google/flan-t5-small", device=-1)
 
-# Efficient embedding model
+# Use a small sentence-transformers model for retrieval
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
 def retrieve_context(query, num_results=3):
@@ -23,13 +23,12 @@ def retrieve_context(query, num_results=3):
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
 
-    query_emb = embedder.encode([query])
+    query_emb = embedder.encode([query], convert_to_numpy=True)
     distances, indices = index.search(query_emb, num_results)
 
     return "\n".join([docs[i] for i in indices[0]])
 
-# Streamlit UI
-st.title("🚗 AiCarGuy - Advanced Automotive Chatbot")
+st.title("🚗 AiCarGuy - Automotive Chatbot (Flan-T5)")
 
 if 'history' not in st.session_state:
     st.session_state['history'] = []
@@ -37,21 +36,21 @@ if 'history' not in st.session_state:
 user_input = st.text_input("Ask any automotive repair or maintenance question:")
 
 if st.button("Submit"):
-    context = retrieve_context(user_input)
-
-    prompt = f"""You are a helpful automotive assistant. Use this context to accurately answer the user's question:
-
-Context:
+    if not user_input.strip():
+        reply = "Please ask an automotive-related question."
+    else:
+        # Retrieve relevant context
+        context = retrieve_context(user_input)
+        # Build a prompt for Flan-T5
+        prompt = f"""Context:
 {context}
 
-Question:
-{user_input}
-
-Answer:
+User question: {user_input}
+Answer in a helpful, concise manner:
 """
-
-    output = generator(prompt, max_length=500, temperature=0.7, do_sample=True)[0]['generated_text']
-    reply = output.split("Answer:")[-1].strip()
+        # Generate the response
+        output = generator(prompt, max_length=200, temperature=0.7, do_sample=True)
+        reply = output[0]['generated_text']
 
     st.session_state['history'].append((user_input, reply))
 
