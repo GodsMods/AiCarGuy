@@ -61,7 +61,7 @@ if st.button("Submit"):
     else:
         context = retrieve_context(user_input)
         prompt = f"Automotive Repair Information:\n{context}\nUser: {user_input}\nAnswer:"
-        output = generator(prompt, max_length=150, do_sample=True, temperature=0.8)[0]["generated_text"]
+        output = generator(prompt, max_length=300, do_sample=True, temperature=0.8, truncation=True)[0]["generated_text"]
         reply = output.split("Answer:")[-1].strip() if "Answer:" in output else output.strip()
 
     st.session_state['history'].append((user_input, reply))
