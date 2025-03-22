@@ -1,7 +1,5 @@
 streamlit
-transformers
-torch
+openai
 duckduckgo-search
 faiss-cpu
 numpy
-sentence-transformers
