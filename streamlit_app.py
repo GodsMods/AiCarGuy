@@ -14,8 +14,13 @@ tokenizer = AutoTokenizer.from_pretrained(embed_model_id)
 model = AutoModel.from_pretrained(embed_model_id)
 
 def is_automotive_query(query):
-    keywords = ["car","engine","brake","tire","vehicle","automotive","transmission","exhaust","repair","maintenance","mod", "lugnut", "wheel"]
-    return any(k in query.lower() for k in keywords)
+    keywords = ["car", "engine", "brake", "tire", "vehicle", "automotive",
+                "transmission", "exhaust", "repair", "maintenance",
+                "mod", "lugnut", "wheel", "coolant", "oil", "fluid",
+                "battery", "spark plug", "radiator", "alternator",
+                "starter", "ignition", "fuel", "sensor", "sierra", "gmc", "chevrolet", "ford", "honda", "toyota"]
+    query = query.lower()
+    return any(keyword in query for keyword in keywords)
 
 def get_embedding(text):
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
