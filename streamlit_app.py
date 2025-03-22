@@ -88,7 +88,7 @@ def answer_query(user_query):
     # 5) GPT-3.5
     return call_gpt35(messages)
 
-st.title("🚗 AiCarGuy – GPT-3.5 + Domain-limited search for godsmods.shop")
+st.title("🚗 AiCarGuy")
 
 if "history" not in st.session_state:
     st.session_state["history"] = []
