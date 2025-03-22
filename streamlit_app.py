@@ -1,60 +1,43 @@
 import streamlit as st
-from transformers import pipeline
-from sentence_transformers import SentenceTransformer
-from duckduckgo_search import DDGS
-import numpy as np
-import faiss
+import openai
 
-# Use Flan-T5-Small for instruction-tuned Q&A
-generator = pipeline("text2text-generation", model="google/flan-t5-small", device=-1)
+openai.api_key = st.secrets["OPENAI_API_KEY"]  # We'll store the key in Streamlit secrets
 
-# Use a small sentence-transformers model for retrieval
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+st.title("🚗 AiCarGuy – OpenAI Edition")
 
-def retrieve_context(query, num_results=3):
-    with DDGS() as ddgs:
-        web_results = list(ddgs.text(query + " automotive repair", max_results=5))
-    if not web_results:
-        return "No relevant automotive repair information found."
-
-    docs = [f"{res['title']}: {res['body']}" for res in web_results]
-    embeddings = embedder.encode(docs, convert_to_numpy=True)
-
-    index = faiss.IndexFlatL2(embeddings.shape[1])
-    index.add(embeddings)
-
-    query_emb = embedder.encode([query], convert_to_numpy=True)
-    distances, indices = index.search(query_emb, num_results)
-
-    return "\n".join([docs[i] for i in indices[0]])
-
-st.title("🚗 AiCarGuy - Automotive Chatbot (Flan-T5)")
-
-if 'history' not in st.session_state:
-    st.session_state['history'] = []
+if "history" not in st.session_state:
+    st.session_state["history"] = []
 
 user_input = st.text_input("Ask any automotive repair or maintenance question:")
 
 if st.button("Submit"):
     if not user_input.strip():
-        reply = "Please ask an automotive-related question."
+        reply = "Please enter a question."
     else:
-        # Retrieve relevant context
-        context = retrieve_context(user_input)
-        # Build a prompt for Flan-T5
-        prompt = f"""Context:
-{context}
+        # Call OpenAI ChatCompletion
+        messages = [
+            {"role": "system", "content": "You are a helpful automotive repair expert."},
+        ]
+        # Add conversation history
+        for q, a in st.session_state["history"]:
+            messages.append({"role": "user", "content": q})
+            messages.append({"role": "assistant", "content": a})
 
-User question: {user_input}
-Answer in a helpful, concise manner:
-"""
-        # Generate the response
-        output = generator(prompt, max_length=200, temperature=0.7, do_sample=True)
-        reply = output[0]['generated_text']
+        # Add current user query
+        messages.append({"role": "user", "content": user_input})
 
-    st.session_state['history'].append((user_input, reply))
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0.7
+        )
 
-for q, a in reversed(st.session_state['history']):
+        reply = response["choices"][0]["message"]["content"]
+
+    st.session_state["history"].append((user_input, reply))
+
+# Display chat history
+for q, a in reversed(st.session_state["history"]):
     st.markdown(f"**You:** {q}")
     st.markdown(f"**AiCarGuy:** {a}")
     st.write("---")
