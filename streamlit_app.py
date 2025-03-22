@@ -6,7 +6,7 @@ import faiss
 import torch
 
 # Load DistilGPT2
-generator = pipeline("text-generation", model="distilgpt2")
+generator = pipeline("text-generation", model="distilgpt2", device=-1)
 
 # Load tiny semantic embedding model
 embed_model_id = "sentence-transformers/all-MiniLM-L6-v2"
