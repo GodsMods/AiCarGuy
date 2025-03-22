@@ -4,3 +4,4 @@ torch
 duckduckgo-search
 faiss-cpu
 numpy
+sentence-transformers
