@@ -3,3 +3,5 @@ openai
 duckduckgo-search
 faiss-cpu
 numpy
+pandas
+python-dotenv
