@@ -30,7 +30,8 @@ def get_embedding(text):
     return embedding[0].cpu().numpy()
 
 def retrieve_context(query, num_results=3):
-    web_results = ddg(query + " automotive repair", max_results=5)
+    with DDGS() as ddgs:
+        web_results = list(ddgs.text(query + " automotive repair", max_results=5))
     if not web_results:
         return "No relevant automotive repair information found."
 
