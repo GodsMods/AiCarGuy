@@ -1,7 +1,9 @@
 import streamlit as st
 import openai
 import time
-from duckduckgo_search import DDGS, DuckDuckGoSearchException
+from duckduckgo_search import DDGS
+from duckduckgo_search.exceptions import DuckDuckGoSearchException
+
 
 # 1. Retrieve your OpenAI key from secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
