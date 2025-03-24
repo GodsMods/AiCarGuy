@@ -132,7 +132,7 @@ def answer_query(user_query):
 ############################
 # 6. Streamlit UI
 ############################
-st.title("🚗 AiCarGuy – GPT-3.5 with Memory")
+st.title("🚗 AiCarGuy")
 
 # session_state["messages"] holds the entire conversation
 if "messages" not in st.session_state:
