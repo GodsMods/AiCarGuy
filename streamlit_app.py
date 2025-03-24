@@ -4,12 +4,12 @@ import openai
 from duckduckgo_search import DDGS
 
 ############################
-# 1. Set up your OpenAI client
+# 1. OpenAI client with new usage
 ############################
-# According to the new approach, we create an openai.Client with your API key:
+# We'll create an openai.Client with your API key from secrets:
 client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="AiCarGuy – GPT-3.5 + Domain Search", layout="wide")
+st.set_page_config(page_title="AiCarGuy – GPT-3.5 with Conversation Memory", layout="wide")
 
 AUTOMOTIVE_KEYWORDS = [
     "car","engine","brake","tire","vehicle","automotive","transmission",
@@ -19,39 +19,17 @@ AUTOMOTIVE_KEYWORDS = [
 ]
 
 def is_automotive_query(query):
-    q_lower = query.lower()
-    return any(k in q_lower for k in AUTOMOTIVE_KEYWORDS)
+    return any(k in query.lower() for k in AUTOMOTIVE_KEYWORDS)
 
 ############################
-# 2. The new Chat Completions API
-############################
-def call_gpt35(messages):
-    """
-    Uses the new openai.Client with the chat.completions.create method.
-    messages: a list of dicts in the style of GPT-3.5 chat format
-    """
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        temperature=0.7
-    )
-    # The returned object is an openai.types.Object object. Convert to dict or directly:
-    # response.choices[0].message.content
-    return response.choices[0].message.content
-
-############################
-# 3. Domain-limited search for godsmods.shop
+# 2. DuckDuckGo domain-limited search
 ############################
 def domain_search_godsmods(query):
-    """
-    Searches only site:godsmods.shop for relevant product links or info.
-    Returns a short snippet or error message if none found.
-    """
     query = query.strip()
     if not query:
         return "No product link found (empty query)."
-
     time.sleep(1)  # small delay to avoid rate-limiting
+
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(f"site:godsmods.shop {query}", max_results=3))
@@ -70,17 +48,14 @@ def domain_search_godsmods(query):
     return link_info.strip() if link_info else "No direct product link found."
 
 ############################
-# 4. General automotive snippet
+# 3. DuckDuckGo general snippet
 ############################
 def general_web_snippet(query):
-    """
-    General automotive info search. Also uses a small delay & generic exception handling.
-    """
     query = query.strip()
     if not query:
         return "No general automotive info found (empty query)."
-
     time.sleep(1)
+
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query + " automotive repair", max_results=3))
@@ -96,52 +71,88 @@ def general_web_snippet(query):
     return snippet.strip()
 
 ############################
-# 5. Build final answer
+# 4. GPT-3.5 call with conversation memory
+############################
+def call_gpt35(messages):
+    """
+    messages: list of {role: user/assistant/system, content: str}
+    using the new openai.Client chat.completions.create
+    """
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        temperature=0.7
+    )
+    return response.choices[0].message.content
+
+############################
+# 5. Build final answer (with memory)
 ############################
 def answer_query(user_query):
-    # 1) Domain check
+    # If user query is not automotive, short-circuit
     if not is_automotive_query(user_query):
         return "I only answer automotive repair or upgrade questions. Please ask something car-related."
 
-    # 2) domain-limited search
+    # domain-limited search for product link
     product_links = domain_search_godsmods(user_query)
-
-    # 3) general snippet
+    # general snippet
     web_info = general_web_snippet(user_query)
 
-    # 4) Build the messages
-    messages = [
-        {"role": "system", "content": "You are a helpful automotive repair and upgrade expert. You ONLY answer automotive questions."},
-        {
-            "role": "assistant",
-            "content": (
-                f"Here is some product info from godsmods.shop:\n{product_links}\n\n"
-                f"Here is some general automotive web info:\n{web_info}"
-            )
-        },
-        {"role": "user", "content": user_query}
-    ]
+    # We'll insert the new context as an assistant message
+    # so the model sees it in the conversation
+    context_message = {
+        "role": "assistant",
+        "content": (
+            f"Here is some product info from godsmods.shop:\n{product_links}\n\n"
+            f"Here is some general automotive web info:\n{web_info}"
+        )
+    }
+
+    # Insert system instructions if this is the first user query
+    # or if you prefer to always keep them at the start of the conversation
+    messages = []
+    found_system = any(m["role"] == "system" for m in st.session_state["messages"])
+    if not found_system:
+        messages.append({"role": "system", "content": "You are a helpful automotive repair and upgrade expert. You ONLY answer automotive questions."})
+
+    # Add all prior conversation from st.session_state
+    messages.extend(st.session_state["messages"])
+
+    # Add the new context as an assistant message
+    messages.append(context_message)
+    # Then add the user's new question
+    messages.append({"role": "user", "content": user_query})
+
+    # Call GPT
     final_answer = call_gpt35(messages)
+
+    # Return final answer
     return final_answer
 
 ############################
 # 6. Streamlit UI
 ############################
-st.title("🚗 AiCarGuy – GPT-3.5 + Domain-limited search (New openai.Client)")
+st.title("🚗 AiCarGuy – GPT-3.5 with Memory")
 
-if "history" not in st.session_state:
-    st.session_state["history"] = []
+# session_state["messages"] holds the entire conversation
+if "messages" not in st.session_state:
+    # Initialize with an empty list
+    st.session_state["messages"] = []
 
-user_input = st.text_input("Ask me an automotive repair or a product question on godsmods.shop:")
+user_input = st.text_input("Ask an automotive question or a product question on godsmods.shop:")
 
 if st.button("Submit"):
     if not user_input.strip():
         st.warning("Please enter a question.")
     else:
         reply = answer_query(user_input)
-        st.session_state["history"].append((user_input, reply))
+        # Add the user's question and the assistant's reply to session memory
+        st.session_state["messages"].append({"role": "user", "content": user_input})
+        st.session_state["messages"].append({"role": "assistant", "content": reply})
 
-for q, a in reversed(st.session_state["history"]):
-    st.markdown(f"**You:** {q}")
-    st.markdown(f"**AiCarGuy:** {a}")
+for msg in reversed(st.session_state["messages"]):
+    if msg["role"] == "user":
+        st.markdown(f"**You:** {msg['content']}")
+    elif msg["role"] == "assistant":
+        st.markdown(f"**AiCarGuy:** {msg['content']}")
     st.write("---")
