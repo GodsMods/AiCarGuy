@@ -1,5 +1,5 @@
 streamlit
-openai
+openai>=0.28.0
 duckduckgo-search==3.8.0
 faiss-cpu
 numpy
