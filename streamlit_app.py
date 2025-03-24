@@ -1,15 +1,16 @@
 import streamlit as st
-import openai
 import time
+import openai
 from duckduckgo_search import DDGS
-# Removed: from duckduckgo_search.exceptions import DuckDuckGoSearchException
 
-# 1. Retrieve your OpenAI key from secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+############################
+# 1. Set up your OpenAI client
+############################
+# According to the new approach, we create an openai.Client with your API key:
+client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="AiCarGuy – GPT-3.5 + godsmods.shop + DuckDuckGo", layout="wide")
+st.set_page_config(page_title="AiCarGuy – GPT-3.5 + Domain Search", layout="wide")
 
-# Domain filter keywords
 AUTOMOTIVE_KEYWORDS = [
     "car","engine","brake","tire","vehicle","automotive","transmission",
     "exhaust","repair","maintenance","mod","lugnut","wheel","coolant","oil",
@@ -21,30 +22,36 @@ def is_automotive_query(query):
     q_lower = query.lower()
     return any(k in q_lower for k in AUTOMOTIVE_KEYWORDS)
 
+############################
+# 2. The new Chat Completions API
+############################
 def call_gpt35(messages):
     """
-    Uses GPT-3.5-turbo to generate a response.
+    Uses the new openai.Client with the chat.completions.create method.
+    messages: a list of dicts in the style of GPT-3.5 chat format
     """
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=messages,
         temperature=0.7
     )
-    return response["choices"][0]["message"]["content"]
+    # The returned object is an openai.types.Object object. Convert to dict or directly:
+    # response.choices[0].message.content
+    return response.choices[0].message.content
 
+############################
+# 3. Domain-limited search for godsmods.shop
+############################
 def domain_search_godsmods(query):
     """
-    Search only site:godsmods.shop for relevant product links.
-    Return a short string with the top link found, or a note if none found.
-    Handles errors gracefully with a generic exception catch.
+    Searches only site:godsmods.shop for relevant product links or info.
+    Returns a short snippet or error message if none found.
     """
     query = query.strip()
     if not query:
         return "No product link found (empty query)."
 
-    # small delay to avoid rate-limiting
-    time.sleep(1)
-
+    time.sleep(1)  # small delay to avoid rate-limiting
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(f"site:godsmods.shop {query}", max_results=3))
@@ -54,26 +61,26 @@ def domain_search_godsmods(query):
     if not results:
         return "No product link found for that query on godsmods.shop."
 
-    # parse results for link
     link_info = ""
     for r in results:
-        title = r.get("title","")
-        body = r.get("body","")
+        title = r.get("title", "")
+        body = r.get("body", "")
         link_info += f"{title}: {body}\n"
 
     return link_info.strip() if link_info else "No direct product link found."
 
+############################
+# 4. General automotive snippet
+############################
 def general_web_snippet(query):
     """
-    General automotive info search (not domain restricted).
-    Also has a small delay + generic exception handling.
+    General automotive info search. Also uses a small delay & generic exception handling.
     """
     query = query.strip()
     if not query:
         return "No general automotive info found (empty query)."
 
     time.sleep(1)
-
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query + " automotive repair", max_results=3))
@@ -88,18 +95,21 @@ def general_web_snippet(query):
         snippet += f"{r.get('title','')}: {r.get('body','')}\n"
     return snippet.strip()
 
+############################
+# 5. Build final answer
+############################
 def answer_query(user_query):
     # 1) Domain check
     if not is_automotive_query(user_query):
         return "I only answer automotive repair or upgrade questions. Please ask something car-related."
 
-    # 2) domain-limited search for product link
+    # 2) domain-limited search
     product_links = domain_search_godsmods(user_query)
 
-    # 3) general automotive snippet
+    # 3) general snippet
     web_info = general_web_snippet(user_query)
 
-    # 4) Build messages for GPT
+    # 4) Build the messages
     messages = [
         {"role": "system", "content": "You are a helpful automotive repair and upgrade expert. You ONLY answer automotive questions."},
         {
@@ -111,14 +121,13 @@ def answer_query(user_query):
         },
         {"role": "user", "content": user_query}
     ]
-    # 5) GPT-3.5
     final_answer = call_gpt35(messages)
     return final_answer
 
 ############################
-# Streamlit UI
+# 6. Streamlit UI
 ############################
-st.title("🚗 AiCarGuy")
+st.title("🚗 AiCarGuy – GPT-3.5 + Domain-limited search (New openai.Client)")
 
 if "history" not in st.session_state:
     st.session_state["history"] = []
