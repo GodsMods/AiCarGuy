@@ -2,8 +2,7 @@ import streamlit as st
 import openai
 import time
 from duckduckgo_search import DDGS
-from duckduckgo_search.exceptions import DuckDuckGoSearchException
-
+# Removed: from duckduckgo_search.exceptions import DuckDuckGoSearchException
 
 # 1. Retrieve your OpenAI key from secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -37,7 +36,7 @@ def domain_search_godsmods(query):
     """
     Search only site:godsmods.shop for relevant product links.
     Return a short string with the top link found, or a note if none found.
-    Handles DuckDuckGoSearchException gracefully.
+    Handles errors gracefully with a generic exception catch.
     """
     query = query.strip()
     if not query:
@@ -49,7 +48,7 @@ def domain_search_godsmods(query):
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(f"site:godsmods.shop {query}", max_results=3))
-    except DuckDuckGoSearchException as e:
+    except Exception as e:
         return f"Error searching godsmods.shop: {str(e)}"
 
     if not results:
@@ -67,7 +66,7 @@ def domain_search_godsmods(query):
 def general_web_snippet(query):
     """
     General automotive info search (not domain restricted).
-    Also has a small delay + exception handling.
+    Also has a small delay + generic exception handling.
     """
     query = query.strip()
     if not query:
@@ -78,7 +77,7 @@ def general_web_snippet(query):
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query + " automotive repair", max_results=3))
-    except DuckDuckGoSearchException as e:
+    except Exception as e:
         return f"Error searching general automotive info: {str(e)}"
 
     if not results:
