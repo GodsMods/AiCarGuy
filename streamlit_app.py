@@ -289,7 +289,7 @@ AUTOMOTIVE_KEYWORDS = [
     "SD card tuning", "switchable maps", "valet mode", "kill mode",
     "anti-theft", "speed limiter", "rev limiter", "launch control",
     "flat foot shifting", "no-lift shift", "auto-blip", "throttle blip",
-    "dec
+    "dec", 
 ]
 
 def is_automotive_query(query):
