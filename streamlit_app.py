@@ -11,7 +11,7 @@ client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.set_page_config(page_title="AiCarGuy – GPT-3.5 with Conversation Memory", layout="wide")
 
-  AUTOMOTIVE_KEYWORDS = [
+AUTOMOTIVE_KEYWORDS = [
     # Original List Terms (Maintained)
     "car", "vehicle", "automotive", "repair", "maintenance", "upgrade", "mod",
     "aftermarket", "performance", "tuning", "diagnostic", "engine", "motor",
