@@ -9,7 +9,7 @@ from duckduckgo_search import DDGS
 # We'll create an openai.Client with your API key from secrets:
 client = openai.Client(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="AiCarGuy – GPT-3.5 with Conversation Memory", layout="wide")
+st.set_page_config(page_title="AiCarGuy", layout="wide")
 
 AUTOMOTIVE_KEYWORDS = [
     # Original List Terms (Maintained)
@@ -344,7 +344,7 @@ def general_web_snippet(query):
     return snippet.strip()
 
 ############################
-# 4. GPT-3.5 call with conversation memory
+# 4. GPT o3-mini call with conversation memory
 ############################
 def call_gpt35(messages):
     """
@@ -352,7 +352,7 @@ def call_gpt35(messages):
     using the new openai.Client chat.completions.create
     """
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="o3-mini-2025-01-31",
         messages=messages,
         temperature=0.7
     )
