@@ -354,7 +354,6 @@ def call_gpt35(messages):
     response = client.chat.completions.create(
         model="o3-mini-2025-01-31",
         messages=messages,
-        temperature=0.7
     )
     return response.choices[0].message.content
 
