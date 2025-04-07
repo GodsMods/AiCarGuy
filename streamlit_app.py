@@ -166,7 +166,7 @@ def answer_query(user_query):
 ############################
 # 6. Streamlit UI with persistent conversation history
 ############################
-st.title("🚗 AiCarGuy – Automotive Chatbot with Memory")
+st.title("🚗 AiCarGuy")
 
 # Initialize conversation history if not present
 if "messages" not in st.session_state:
