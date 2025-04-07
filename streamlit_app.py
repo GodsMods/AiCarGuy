@@ -122,11 +122,11 @@ def general_web_snippet(query):
     return snippet.strip()
 
 ############################
-# 4. GPT-3.5 call with conversation memory (new OpenAI client usage)
+# 4. GPT-4o mini call with conversation memory (new OpenAI client usage)
 ############################
 def call_gpt35(messages):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini-2024-07-18",
         messages=messages,
         temperature=0.7
     )
